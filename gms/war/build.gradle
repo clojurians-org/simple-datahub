@@ -7,7 +7,7 @@ dependencies {
 
   runtime externalDependency.h2
   runtime externalDependency.logbackClassic
-  runtime externalDependency.mysqlConnector
+  runtime externalDependency.pgConnector
 
   runtime spec.product.pegasus.restliSpringBridge
 }
@@ -22,6 +22,6 @@ dependencies {
 
 task JettyRunWar(type: JavaExec) {
   main = "org.eclipse.jetty.runner.Runner"
-  args = [war.archivePath]
+  args = ["--host", "0.0.0.0", "--port", "8080", war.archivePath]
   classpath configurations.jetty8
 }

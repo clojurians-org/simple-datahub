@@ -19,7 +19,7 @@ dependencies {
 
   play externalDependency.jerseyCore
   play externalDependency.jerseyGuava
-  play externalDependency.mysqlConnector
+  play externalDependency.pgConnector
   play externalDependency.playJavaJdbc
   play externalDependency.springJdbc
 
