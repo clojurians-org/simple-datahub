@@ -1,0 +1,23 @@
+# Gradle & Avro
+.project
+.settings
+.classpath
+.gradle
+.idea
+*.iml
+*.iws
+*.ipr
+**/resources/**/mxe
+
+# Pegasus & Avro
+**/src/mainGenerated*
+**/src/testGenerated*
+
+# Added by mp-maker
+**/build
+/config
+*/i18n
+/out
+
+# Mac OS
+**/.DS_Store
