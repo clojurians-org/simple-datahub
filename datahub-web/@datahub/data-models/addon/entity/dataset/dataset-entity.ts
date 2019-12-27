@@ -46,9 +46,11 @@ export class DatasetEntity extends BaseEntity<IDatasetApiView> {
   /**
    * The human friendly alias for Dataset entities
    */
-  static displayName: 'datasets' = 'datasets';
+  // static displayName: 'datasets' = 'datasets';
+  static displayName: '数据集' = '数据集';
 
-  get displayName(): 'datasets' {
+  // get displayName(): 'datasets' {
+  get displayName(): '数据集' {
     return DatasetEntity.displayName;
   }
 

@@ -37,7 +37,8 @@ const initProps = (): {
    */
   const nachoDropdownOptionsWithSelect: Array<INachoDropdownOption<string>> = [
     {
-      label: 'Select entity type',
+      // label: 'Select entity type',
+      label: '选择实体类型',
       value: ''
     },
     ...nachoDropdownOptions
@@ -150,7 +151,8 @@ export default class SearchBox extends Component {
     const { searchDisabled, selectedEntity } = this;
 
     if (searchDisabled) {
-      return `Select ${stringListOfEntities(unGuardedEntities(getConfig))}`;
+      // return `Select ${stringListOfEntities(unGuardedEntities(getConfig))}`;
+      return `选择 ${stringListOfEntities(unGuardedEntities(getConfig))}`;
     }
     if (selectedEntity) {
       return DataModelEntity[selectedEntity].renderProps.search.placeholder;

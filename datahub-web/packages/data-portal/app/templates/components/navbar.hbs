@@ -24,7 +24,7 @@
         class="navbar-brand"
       }}
         {{svg-jar "inbug" width="34px" height="34px"}}
-        <span class="navbar-brand-text">DATA HUB</span>
+        <span class="navbar-brand-text">华瑞数据资产管理系统</span>
       {{/link-to}}
     </div>
 
@@ -72,14 +72,14 @@
           >
             {{#each entities as |entity|}}
               {{#nav-link "user.entity.own" entity.displayName tagName="li"}}
-                {{capitalize entity.displayName}} I Own
+                我的{{capitalize entity.displayName}}
               {{/nav-link}}
             {{/each}}
 
             <li role="separator" class="divider"></li>
 
             <li class="dropdown-header">
-              Help
+              帮助
               <span
                 class="glyphicon glyphicon-question-sign"
                 aria-hidden="true"
@@ -101,7 +101,7 @@
 
             <li role="separator" class="divider"></li>
 
-            {{#nav-link "logout" tagName="li"}}Logout{{/nav-link}}
+            {{#nav-link "logout" tagName="li"}}注销{{/nav-link}}
           </ul>
         </li>
       </ul>

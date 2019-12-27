@@ -12,7 +12,7 @@
           class="btn {{if isTable "btn-primary" "btn-default"}}"
           {{action "showView" "table"}}
         >
-          View as Table
+          表格显示
         </button>
 
         <button
@@ -20,7 +20,7 @@
           class="btn {{if isTable "btn-default" "btn-primary"}}"
           {{action "showView" "json"}}
         >
-          View as JSON
+          JSON显示
         </button>
 
       </div>
@@ -39,9 +39,9 @@
   >
     <thead>
       <tr class="results-header">
-        <th class="dataset-detail-table__th-field-name col-xs-2">Column</th>
-        <th class="col-xs-1">Data Type</th>
-        <th class="dataset-detail-table__th-comments">Default Comments</th>
+        <th class="dataset-detail-table__th-field-name col-xs-2">列名</th>
+        <th class="col-xs-1">数据类型</th>
+        <th class="dataset-detail-table__th-comments">描述</th>
         <th
           title="Comment Count"
           class="dataset-detail-table__th-comment-count"

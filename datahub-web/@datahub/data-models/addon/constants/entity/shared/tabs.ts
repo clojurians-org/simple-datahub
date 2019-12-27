@@ -33,27 +33,32 @@ export enum Tab {
 export const TabProperties: Record<Tab, ITabProperties> = {
   [Tab.Schema]: {
     id: Tab.Schema,
-    title: 'Schema',
+    // title: 'Schema',
+    title: '模式',
     component: 'datasets/containers/dataset-schema'
   },
   [Tab.Properties]: {
     id: Tab.Properties,
-    title: 'Status',
+    // title: 'Status',
+    title: '状态',
     component: 'datasets/containers/dataset-properties'
   },
   [Tab.Ownership]: {
     id: Tab.Ownership,
-    title: 'Ownership',
+    // title: 'Ownership',
+    title: '所有者',
     component: 'datasets/containers/dataset-ownership'
   },
   [Tab.Comments]: {
     id: Tab.Comments,
-    title: 'Comments',
+    // title: 'Comments',
+    title: '描述',
     component: ''
   },
   [Tab.SampleData]: {
     id: Tab.SampleData,
-    title: 'Sample Data',
+    // title: 'Sample Data',
+    title: '样本数据',
     component: ''
   },
   /*
@@ -62,18 +67,21 @@ export const TabProperties: Record<Tab, ITabProperties> = {
    */
   [Tab.Relationships]: {
     id: Tab.Relationships,
-    title: 'Relationships',
+    // title: 'Relationships',
+    title: '依赖关系',
     component: 'datasets/dataset-relationships',
     lazyRender: true
   },
   [Tab.Metadata]: {
     id: Tab.Metadata,
-    title: 'Metadata',
+    // title: 'Metadata',
+    title: '元数据',
     component: 'feature-attributes'
   },
   [Tab.Wiki]: {
     id: Tab.Wiki,
-    title: 'Docs',
+    // title: 'Docs',
+    title: '相关文档',
     component: 'institutional-memory/containers/tab',
     lazyRender: true
   }

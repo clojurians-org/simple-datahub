@@ -10,39 +10,19 @@ kafka-topics.sh --create --if-not-exists --zookeeper 10.132.37.201:2181/monitor 
 CREATE USER datahub WITH PASSWORD 'datahub' ;
 CREATE DATABASE datahub ;
 psql -h 10.132.37.200 -U monitor
-drop table metadata_aspect ;
-create table metadata_aspect (
-    urn                           varchar(500) not null,
-    aspect                        varchar(200) not null,
-    version                       numeric(20) not null,
-    metadata                      text not null,
-    createdon                     timestamp(6) not null,
-    createdby                     varchar(255) not null,
-    createdfor                    varchar(255),
-    constraint pk_metadata_aspect primary key (urn,aspect,version)
-);
-
-insert into metadata_aspect (urn, aspect, version, metadata, createdon, createdby) values(
-    'urn:li:corpuser:datahub',
-    'com.linkedin.identity.CorpUserInfo',
-    0,
-    '{"displayName":"Data Hub","active":true,"fullName":"Data Hub","email":"datahub@linkedin.com"}',
-    now(),
-    'urn:li:principal:datahub'
-), (
-    'urn:li:corpuser:datahub',
-    'com.linkedin.identity.CorpUserEditableInfo',
-    0,
-    '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/linkedin/WhereHows/datahub/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"}',
-    now(),
-    'urn:li:principal:datahub'
-);
 ;;==============
 ;; ES SETUP
 ;;==============
 curl -H 'Content-Type: Application/JSON' -XPUT 10.132.37.201:9200/corpuserinfodocument --data @./nix/corpuser-index-config.json;
 curl -H 'Content-Type: Application/JSON' -XPUT 10.132.37.201:9200/datasetdocument --data @./nix/dataset-index-config.json
 
+;;==============
+;; NEO4J SETUP
+;;==============
+nix-env -f '<nixos-19.09>' -iA neo4j
+chmod 777 -R /nix/store/*-neo4j-3.5.8/share
+neo4j/conf/neo4j.conf :> dbms.security.auth_enabled=true
+neo4j start
 
 ;;==============
 ;; GMS STARTUP
@@ -61,12 +41,18 @@ curl "http://localhost:8080/datasets?action=browse" -d '{"path": "", "start": 0,
 ;;==============
 ;; JOBS STARTUP
 ;;==============
+;; 1. kafka -> gms (postgres) -> kafka
 export KAFKA_BOOTSTRAP_SERVER=10.132.37.201:9092
 export KAFKA_SCHEMAREGISTRY_URL=http://10.132.37.201:8081
 export GMS_HOST=10.132.37.200
 export GMS_PORT=8080
 
 ./gradlew :metadata-jobs:mce-consumer-job:run
+;; 2. kafka -> es + neo4j
+export KAFKA_BOOTSTRAP_SERVER=10.132.37.201:9092
+export KAFKA_SCHEMAREGISTRY_URL=http://10.132.37.201:8081
+export ELASTICSEARCH_HOST=10.132.37.201
+./gradlew :metadata-jobs:mae-consumer-job:run
 
 ;;==============
 ;; EVENT TRIGGER
@@ -74,3 +60,6 @@ export GMS_PORT=8080
 ./gradlew :metadata-events:mxe-schemas:build
 python mce_cli.py produce -d bootstrap_mce.dat -b 10.132.37.201:9092 -s http://10.132.37.201:8081
 
+
+
+http://10.132.37.201:9200/datasetdocument/_search?typed_keys=true&ignore_unavailable=false&expand_wildcards=open&allow_no_indices=true&search_type=query_then_fetch&batched_reduce_size=512

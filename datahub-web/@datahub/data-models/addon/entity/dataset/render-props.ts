@@ -16,7 +16,8 @@ export const getRenderProps = (): IEntityRenderProps => {
 
   return {
     search: {
-      placeholder: 'Search for datasets...',
+      // placeholder: 'Search for datasets...',
+      placeholder: '搜索数据集...',
       attributes: fields,
       apiName: 'dataset'
     },
