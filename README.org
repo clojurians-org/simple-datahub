@@ -1,0 +1,123 @@
+#+STARTUP: showall
+
+* 项目说明:
+  此项目基于LinkedIn Datahub元数据平台二次开发, 进行简化改造及功能扩展
+  - 去除docker依赖[完成]
+  - 切换到postgresql数据集[完成]
+  - UI中文支持 [部分完成]
+  - 提供clojure/haskell 数据库模式脚本功能 [开发中]
+  - 增加ETLCode实体类型及clojure/haskell脚本 [分析中]
+  - 切换MAE/MCE作业成clojure/haskell脚本模式[分析中]
+  - 集成血缘分析haskell(queryparser/hssqlppp)脚本功能 [开发中]
+  - 集成数据质量Apache Griffin平台 [分析中]
+  - 添加apache-flink实时计算clojure脚本支持[分析中]
+  - 切换至typescript + react前端技术重构
+
+* 项目依赖
+  - Kafka 及Kafka schema-registry集群 [实时计算及事件触发]
+  - PostgreSQL数据库 [存储功能]
+  - ElasticSearch数据库 [搜索功能]
+  - Neo4j数据库 [实体关系模型]
+
+* 运行流程及部署过程
+** 一. 运行流程:
+  此项目由三部分组成: Kafka-Stream MCE/MAE作业, gms后台服务,  datahub-frontend前台服务
+  1. 上游ETL脚本推送avro数据至Kafka Topic[MetadataChangeEvent]
+  2. MCE作业读取Kafka[MetadataChangeEvent]数据写入gms后台
+  3. gms后台写入postgresql, 并发送数据至Kafka[MetadataAuditEvent]
+  4. MAE作业读取Kafka[MetadataAuditEvent], 写入数据至ES及neo4j
+  5. datahub-rontend前端通过gms数据服务[postgresql + elasticsearch + neo4j]访问元数据
+
+** 二. 部署过程
+*** 外部系统准备
+  1. kafka: 创建主题[MetadataChangeEvent, MetadataAuditEvent]
+#+BEGIN_SRC bash
+  kafka-topics.sh --create --if-not-exists --zookeeper 10.132.37.201:2181/monitor --partitions 1 --replication-factor 1 --topic MetadataChangeEvent
+  kafka-topics.sh --create --if-not-exists --zookeeper 10.132.37.201:2181/monitor --partitions 1 --replication-factor 1 --topic MetadataAuditEvent
+#+END_SRC
+
+  2. pg: 创建数据库及表结构[metadata_aspect]
+#+BEGIN_SRC sql
+  CREATE USER datahub WITH PASSWORD 'datahub' ;            
+  CREATE DATABASE datahub ;                                                                                                                            
+  psql -f nix/init.sql -h 10.132.37.200 -U datahub 
+#+END_SRC
+
+  3. es: 创建文档索引结构[corpuserinfodocument, datasetdocument]
+#+BEGIN_SRC bash
+  curl -H 'Content-Type: Application/JSON' -XPUT 10.132.37.201:9200/corpuserinfodocument --data @./nix/corpuser-index-config.json;
+  curl -H 'Content-Type: Application/JSON' -XPUT 10.132.37.201:9200/datasetdocument --data @./nix/dataset-index-config.json
+#+END_SRC
+
+*** 程序启动过程
+  - 启动gms后台服务[写入 := kafka -> postgresql <> kafka, 服务 := postgresql <> kafka <> elasticsearch <> neo4j]
+#+BEGIN_SRC bash
+export EBEAN_DATASOURCE_URL=jdbc:postgresql://10.132.37.200:5432/datahub
+export EBEAN_DATASOURCE_USERNAME=datahub
+export EBEAN_DATASOURCE_PASSWORD=datahub
+export KAFKA_BOOTSTRAP_SERVER=10.132.37.201:9092
+export KAFKA_SCHEMAREGISTRY_URL=http://10.132.37.201:8081
+export ELASTICSEARCH_HOST=10.132.37.201
+export NEO4J_URI=bolt://localhost
+export NEO4J_USERNAME=neo4j
+export NEO4J_PASSWORD=datahub
+./gradlew :gms:war:build
+./gradlew :gms:war:JettyRunWar
+#+END_SRC
+
+  - 启动datahub-frontend前台服务[gms rest-api -> datahub-frontend]
+#+BEGIN_SRC
+./gradlew :datahub-frontend:build
+cd datahub-frontend/run && ./run-local-frontend
+#+END_SRC
+
+  - 启动MCE作业[kafka/MetadataChangeEvent -> gms]
+#+BEGIN_SRC
+export KAFKA_BOOTSTRAP_SERVER=10.132.37.201:9092
+export KAFKA_SCHEMAREGISTRY_URL=http://10.132.37.201:8081
+export GMS_HOST=10.132.37.200
+export GMS_PORT=8080
+./gradlew :metadata-jobs:mce-consumer-job:build
+./gradlew :metadata-jobs:mce-consumer-job:run
+#+END_SRC
+
+  - 启动MAE作业 [kafka/MetadataAuditEvent -> es <> neo4j]
+#+BEGIN_SRC bash
+export KAFKA_BOOTSTRAP_SERVER=10.132.37.201:9092
+export KAFKA_SCHEMAREGISTRY_URL=http://10.132.37.201:8081
+export ELASTICSEARCH_HOST=10.132.37.201
+export NEO4J_URI=bolt://localhost
+export NEO4J_USERNAME=neo4j
+export NEO4J_PASSWORD=datahub
+./gradlew :metadata-jobs:mae-consumer-job:build
+./gradlew :metadata-jobs:mae-consumer-job:run
+#+END_SRC
+
+*** ETL集成过程[表结构 <> ETL <> 血缘分析]
+  - 测试数据集ETL脚本
+#+BEGIN_SRC bash
+./gradlew :metadata-events:mxe-schemas:build
+python mce_cli.py produce -d bootstrap_mce.dat -b 10.132.37.201:9092 -s http://10.132.37.201:8081
+#+END_SRC
+  - oracle ETL脚本
+  - mysql ETL脚本
+  - postgresql ETL脚本
+  - hive ETL脚本
+
+
+* 项目模块
+** datahub-frontend + datahub-web
+datahub-frontend 负责后台功能， datahub-web负责前端页面
+** gms
+元数据后台服务
+** metadata-jobs
+kafka streams实时计算作业
+** metadata-ingestion
+外部元数据采集脚本
+** metadata-dao + metadata-dao-impl
+外部系统elasticsearch, neo4j, postgresql, kafka, rest 数据层封装
+** metadata-events
+元数据模式定义
+
+
+
