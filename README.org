@@ -30,20 +30,25 @@
 
 ** 二. 部署过程
 *** 外部系统准备
-  1. kafka: 创建主题[MetadataChangeEvent, MetadataAuditEvent]
+  - kafka: 创建主题及schema[MetadataChangeEvent, MetadataAuditEvent]
 #+BEGIN_SRC bash
+  # 1. create topic
   kafka-topics.sh --create --if-not-exists --zookeeper 10.132.37.201:2181/monitor --partitions 1 --replication-factor 1 --topic MetadataChangeEvent
   kafka-topics.sh --create --if-not-exists --zookeeper 10.132.37.201:2181/monitor --partitions 1 --replication-factor 1 --topic MetadataAuditEvent
+
+  # 2. create schema
+  curl -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" --data @./nix/MetadataChangeEvent.avsc  http://10.132.37.201:8081/subjects/MetadataChangeEvent-value/versions
+  curl -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" --data @./nix/MetadataAuditEvent.avsc  http://10.132.37.201:8081/subjects/MetadataAuditEvent-value/versions
 #+END_SRC
 
-  2. pg: 创建数据库及表结构[metadata_aspect]
+  - pg: 创建数据库及表结构[metadata_aspect]
 #+BEGIN_SRC sql
   CREATE USER datahub WITH PASSWORD 'datahub' ;            
   CREATE DATABASE datahub ;                                                                                                                            
   psql -f nix/init.sql -h 10.132.37.200 -U datahub 
 #+END_SRC
 
-  3. es: 创建文档索引结构[corpuserinfodocument, datasetdocument]
+  - es: 创建文档索引结构[corpuserinfodocument, datasetdocument]
 #+BEGIN_SRC bash
   curl -H 'Content-Type: Application/JSON' -XPUT 10.132.37.201:9200/corpuserinfodocument --data @./nix/corpuser-index-config.json;
   curl -H 'Content-Type: Application/JSON' -XPUT 10.132.37.201:9200/datasetdocument --data @./nix/dataset-index-config.json
@@ -63,12 +68,6 @@ export NEO4J_USERNAME=neo4j
 export NEO4J_PASSWORD=datahub
 ./gradlew :gms:war:build
 ./gradlew :gms:war:JettyRunWar
-#+END_SRC
-
-  - 启动datahub-frontend前台服务[gms rest-api -> datahub-frontend]
-#+BEGIN_SRC
-./gradlew :datahub-frontend:build
-cd datahub-frontend/run && ./run-local-frontend
 #+END_SRC
 
   - 启动MCE作业[kafka/MetadataChangeEvent -> gms]
@@ -92,6 +91,14 @@ export NEO4J_PASSWORD=datahub
 ./gradlew :metadata-jobs:mae-consumer-job:build
 ./gradlew :metadata-jobs:mae-consumer-job:run
 #+END_SRC
+
+  - 启动datahub-frontend前台服务[gms rest-api -> datahub-frontend]
+  打开网址 http://10.132.37.201:9001 进行访问
+#+BEGIN_SRC
+./gradlew :datahub-frontend:build
+cd datahub-frontend/run && ./run-local-frontend
+#+END_SRC
+
 
 *** ETL集成过程[表结构 <> ETL <> 血缘分析]
   - 测试数据集ETL脚本
@@ -118,6 +125,4 @@ kafka streams实时计算作业
 外部系统elasticsearch, neo4j, postgresql, kafka, rest 数据层封装
 ** metadata-events
 元数据模式定义
-
-
 
