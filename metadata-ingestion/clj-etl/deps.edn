@@ -16,6 +16,7 @@
     org.apache.kafka/kafka_2.12 {:mvn/version "2.3.1"}
     ; org.apache.kafka/kafka-clients {:mvn/version "2.3.1"}
     io.confluent/kafka-avro-serializer {:mvn/version "5.3.2"}
+    cheshire {:mvn/version "5.9.0"}
     }
 }
 
