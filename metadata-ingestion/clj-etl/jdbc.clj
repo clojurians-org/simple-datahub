@@ -26,7 +26,6 @@
         and c.TABLE_NAME = m.TABLE_NAME
         and c.COLUMN_NAME = m.COLUMN_NAME
     where NOT REGEXP_LIKE(c.OWNER, 'ANONYMOUS|PUBLIC|SYS|SYSTEM|DBSNMP|MDSYS|CTXSYS|XDB|TSMSYS|ORACLE.*|APEX.*|TEST?*|GG_.*|\\$')
-    and c.OWNER='ODS' AND c.TABLE_NAME = 'BHS_BA_CUST_CSN_BOOK'
     order by schema_name, c.COLUMN_ID" )
 
 (def db-query-mapping 
@@ -63,7 +62,7 @@
                      , "cluster" nil
                      , "hash" ""
                      , "platformSchema" {"com.linkedin.pegasus2avro.schema.EspressoSchema" 
-                                          {"documentSchema" "", "tableSchema" ""} }
+                                          {"documentSchema" "{}", "tableSchema" "{}"} }
                      , "fields"
                          (for [{ fieldPath :field_path 
                                    description :description
@@ -90,6 +89,7 @@
 
 (def mce-schema "../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc")
 
+(println "starting...")
 (let [ db {:dbtype "oracle:thin" :dbname "EDWDB" :host "10.129.35.227" :user "comm" :password "comm" }
          ; db {:dbtype "postgresql" :dbname "monitor" :host "10.132.37.201" :user "monitor" :password "monitor" } 
          ; db {:dbtype "mysql" :dbname "bus" :host "10.132.37.200" :user "api" :password "api" } 
@@ -97,21 +97,21 @@
               , "key.serializer" "org.apache.kafka.common.serialization.StringSerializer"
               , "value.serializer" "io.confluent.kafka.serializers.KafkaAvroSerializer" 
               , "schema.registry.url" "http://10.132.37.201:8081"
-              , "group.id" "MetadataChangeEvent"
               }
          prop (doto (new java.util.Properties) (.putAll conf)) 
          kp (new KafkaProducer prop)
-         kafka-send (fn [rec] (.send kp (new ProducerRecord "MetadataChangeEvent" rec) ))]
+         kafka-send (fn [rec] (-> kp (.send (new ProducerRecord "MetadataChangeEvent" rec) ) ) )]
     ((comp doall sequence) 
       (comp
           (partition-by :schema_name)
+          (map (fn [schema-cols] (println "schema_name: " (-> schema-cols first :schema_name)) schema-cols))
           (map mk-mce-json)
           (map (partial json->avro mce-schema) )
-          (take 10)
-          #_(map kafka-send)
+          (map kafka-send)
           x/count
-          (map (partial println "total record num: "))
+          (map (partial println "total table num: "))
           )
-      (j/query db (find-db-query db)) ) )
+      (j/query db (find-db-query db)) )
+    (.flush kp) )
 
 (println "finished") 
