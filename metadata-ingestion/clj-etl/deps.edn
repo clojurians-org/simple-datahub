@@ -2,7 +2,7 @@
  :mvn/repos
   { "maven-repos" {:url "https://repo1.maven.org/maven2/"}
     ; "maven-repos" {:url "http://10.132.37.56:8081/repository/maven-central/"} 
-    "clojars.org" {:url "http://clojars.org/repo/"} }
+    "clojars.org" {:url "http://clojars.org/repo/"}
     ; "clojars.org" {:url "http://10.132.37.56:8081/repository/clojars.org"} 
     "confluent" {:url "https://packages.confluent.io/maven"}
     ; "confluent" {:url "http://10.132.37.56:8081/repository/confluent/"}
