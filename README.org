@@ -52,6 +52,8 @@
 #+BEGIN_SRC bash
   curl -H 'Content-Type: Application/JSON' -XPUT 10.132.37.201:9200/corpuserinfodocument --data @./nix/corpuser-index-config.json;
   curl -H 'Content-Type: Application/JSON' -XPUT 10.132.37.201:9200/datasetdocument --data @./nix/dataset-index-config.json
+
+  curl -H 'Content-Type: Application/JSON' -XPUT 10.132.37.201:9200/datasetdocument/doc/_mapping --data @./nix/dataset-index-mapping.json
 #+END_SRC
 
 *** 程序启动过程

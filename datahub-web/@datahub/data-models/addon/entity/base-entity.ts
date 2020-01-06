@@ -317,6 +317,16 @@ export abstract class BaseEntity<T extends IBaseEntity> {
   /**
    * Generate link for category given segments, displayName and count as optional
    */
+  static translateByConf(name: string): string {
+    switch (name) {
+      case 'dev':
+        return '开发环境';
+      case 'prod':
+        return '生产环境';
+      default:
+        return name;
+    }
+  }
   static getLinkForCategory(params: {
     segments: Array<string>;
     displayName: string;
@@ -325,7 +335,7 @@ export abstract class BaseEntity<T extends IBaseEntity> {
     const { segments, count, displayName } = params;
     const link: IEntityLinkNode = {
       title: displayName || '',
-      text: displayName || segments[0] || '',
+      text: BaseEntity.translateByConf(displayName) || segments[0] || '',
       route: 'browse.entity',
       model: [this.displayName],
       queryParams: { path: segments.filter(Boolean).join('/') }
