@@ -142,7 +142,7 @@
     ((comp doall sequence) 
       (comp
           (partition-by :schema_name)
-          (take 10)
+          #_(take 10)
           (map (fn [schema-cols] (println "schema_name: " (-> schema-cols first :schema_name)) schema-cols))
           (map (partial mk-mce-json origin data-platform) )
           (map (partial json->avro mce-schema) )
