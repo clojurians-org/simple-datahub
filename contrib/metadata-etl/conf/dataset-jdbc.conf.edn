@@ -1,6 +1,6 @@
 { :jdbc.ora/edw 
     { :in { :db { :dbtype "oracle:thin" :dbname "EDWDB" :host "10.129.35.227" :user "comm" :password "comm" } } 
-      :params {:origin "PROD" }
+      :params {:origin "DEV" }
       :out { :kafka { "bootstrap.servers" "10.132.37.201:9092"
                     , "schema.registry.url" "http://10.132.37.201:8081" }} }
   :jdbc.mysql/open-platform
@@ -13,4 +13,3 @@
       :params {:origin "PROD"}
       :out { :kafka { "bootstrap.servers" "10.132.37.201:9092"
                     , "schema.registry.url" "http://10.132.37.201:8081" }} } }
-

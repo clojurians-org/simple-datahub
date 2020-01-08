@@ -82,6 +82,10 @@
           "type": "keyword",
           "normalizer": "my_normalizer"
         },
+        "description": {
+          "type": "keyword",
+          "normalizer": "my_normalizer"
+        },
         "upstreams": {
           "type": "keyword",
           "normalizer": "my_normalizer"
