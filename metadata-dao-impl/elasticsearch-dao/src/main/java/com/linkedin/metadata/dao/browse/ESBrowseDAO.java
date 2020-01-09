@@ -170,7 +170,7 @@ public class ESBrowseDAO extends BaseBrowseDAO {
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(size);
-    searchSourceBuilder.fetchSource(new String[]{_config.getBrowsePathFieldName(), _config.getUrnFieldName()}, null);
+    searchSourceBuilder.fetchSource(new String[]{_config.getBrowsePathFieldName(), _config.getUrnFieldName(), "description"}, null);
     searchSourceBuilder.sort(_config.getSortingField(), SortOrder.ASC);
     searchSourceBuilder.query(buildQueryString(path, requestMap, false));
     searchRequest.source(searchSourceBuilder);
@@ -239,6 +239,7 @@ public class ESBrowseDAO extends BaseBrowseDAO {
         final String nextLevelPath = getNextLevelPath(allPaths, currentPath);
         if (nextLevelPath != null) {
           entityMetadataArray.add(new BrowseResultEntity().setName(getSimpleName(nextLevelPath))
+              .setDescription((String)hit.getSourceAsMap().get("description"))
               .setUrn(Urn.createFromString((String) hit.getSourceAsMap().get(_config.getUrnFieldName()))));
         }
       } catch (URISyntaxException e) {
