@@ -1,7 +1,15 @@
 (ns gms_mae_conduit)
 
+(require '[clojure.java.io :as io])
+(require '[cheshire.core :as json])
+
+(import '[java.io ByteArrayOutputStream])
 (import '[java.io PipedInputStream PipedOutputStream])
 (import '[org.apache.http.impl.nio.reactor IOReactorConfig])
+
+(import '[org.apache.avro Schema$Parser])
+(import '[org.apache.avro.io DecoderFactory])
+(import '[org.apache.avro.generic GenericDatumReader])
 
 (import '[org.apache.avro.io EncoderFactory])
 (import '[org.apache.avro.generic GenericDatumWriter])
@@ -23,14 +31,19 @@
 (import '[org.elasticsearch.action.update UpdateRequest])
 (import '[java.util.function BiConsumer])
 
+(defn json->avro [schema-file m]       
+  (let [schema (.parse (new Schema$Parser) (io/file schema-file))                                 
+        reader (new GenericDatumReader schema)]                                                        
+    (->> m (.jsonDecoder (DecoderFactory/get) schema) (.read reader nil))) )
+
 (defn avro->json [rec]
   (let [ schema (.getSchema rec) 
          writer (GenericDatumWriter. schema) 
-         in-stream (PipedInputStream.)
-         out-stream (PipedOutputStream. in-stream)]
-    (future (do (->> out-stream (.jsonEncoder (EncoderFactory/get) schema) (.write writer rec))  
-                (.close out-stream)) )
-    (slurp in-stream) )
+         out-stream (ByteArrayOutputStream.) 
+         json-encoder (.jsonEncoder (EncoderFactory/get) schema out-stream) ]
+    (.write writer rec json-encoder)
+    (.flush json-encoder)
+    (.toString out-stream) )
   )
 
 (comment
@@ -64,14 +77,19 @@
 
 (defn sink-es [es-bulk-processor m]
   (let [ index-req (-> (new IndexRequest ) (.source )) 
-         update-req (new UpdateRequest ) ]
+         update-req (new UpdateRequest ) 
+         ]
     update-req
     #_(.add es-bulk-processor))
   )
-(defn process-single-mae [es-bulk-processor v]
-  (-> v avro->json println)
+
+(defn mae->es-doc [mae]
+  
   )
 
+(defn process-single-mae [es-bulk-processor v]
+  (->> v avro->json json/parse-string prn)
+  )
 (defn -main []
   (println "beginning...")
   (let [ conf { StreamsConfig/BOOTSTRAP_SERVERS_CONFIG "10.132.37.201:9092"
@@ -91,7 +109,6 @@
       (fn [stream-builder]
         (-> stream-builder
             (.stream "MetadataAuditEvent")
-            (.foreach (reify ForeachAction (apply [this k v] (process-single-mae v)))) ))) )
+            (.foreach (reify ForeachAction (apply [this k v] (process-single-mae es-bulk-processor v)))) ))) )
   (println "finished")
   )
-
