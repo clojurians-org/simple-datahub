@@ -24,7 +24,7 @@ export const fields: Array<ISearchEntityRenderProps> = [
     desc: 'The name of the dataset',
     example: 'name:TRACKING.PageViewEvent',
     compute(dataset: IDatasetApiView): string {
-      const name = dataset.nativeName;
+      const name = dataset.nativeName + ' [' + dataset.description + ']';
       const platform: DatasetPlatform = dataset.platform;
       // UMP datasets have been defined as <bucket>.<datasetName> format, so we want to extract out only
       // the name part to display

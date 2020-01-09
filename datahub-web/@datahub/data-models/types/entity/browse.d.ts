@@ -16,7 +16,7 @@ export type IBrowseParams<T> = {
  *
  */
 export interface IBrowseResponse {
-  elements: Array<{ urn: string; name: string }>;
+  elements: Array<{ urn: string; name: string; description: string }>;
   start: number;
   count: number;
   total: number;

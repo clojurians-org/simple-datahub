@@ -274,7 +274,7 @@ export abstract class BaseEntity<T extends IBaseEntity> {
     const entityLinks: Array<IEntityLinkAttrs> = elements.map(
       (element): IEntityLinkAttrs =>
         this.getLinkForEntity({
-          displayName: element.name,
+          displayName: element.name + '[' + element.description + ']',
           entityUrn: element.urn
         })
     );
