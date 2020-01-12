@@ -15,15 +15,24 @@
 
      org.elasticsearch/elasticsearch {:mvn/version "6.8.6"}
      org.elasticsearch.client/elasticsearch-rest-high-level-client {:mvn/version "6.8.6"}
+     pl.allegro.tech/embedded-elasticsearch {:mvn/version "2.10.0"}
 
      net.cgrand/xforms {:mvn/version "0.19.2"}
      cheshire {:mvn/version "5.9.0"}
 
-     org.apache.kafka/kafka_2.12 {:mvn/version "2.3.1"}
+     org.apache.kafka/kafka_2.11 {:mvn/version "2.3.1"}
      org.apache.kafka/kafka-streams {:mvn/version "2.3.1"}
      ; org.apache.kafka/kafka-clients {:mvn/version "2.3.1"}
      io.confluent/kafka-streams-avro-serde {:mvn/version "5.3.2"}
      ; io.confluent/kafka-avro-serializer {:mvn/version "5.3.2"}
+     io.confluent/kafka-schema-registry {:mvn/version "5.3.2" :exclusions [org.apache.kafka/kafka_2.12]}
+
+     com.opentable.components/otj-pg-embedded {:mvn/version "0.13.3"}
+
+     ; org.neo4j/neo4j {:mvn/version "4.0.0"}
+     ; org.neo4j.app/neo4j-server {:mvn/version "4.0.0"}
+     org.neo4j/neo4j {:mvn/version "3.5.14"}
+     org.neo4j.app/neo4j-server {:mvn/version "3.5.14"}
      }
   :paths ["bin", "library", "conf"]
 }
