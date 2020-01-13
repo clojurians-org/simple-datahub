@@ -25,14 +25,12 @@
      ; org.apache.kafka/kafka-clients {:mvn/version "2.3.1"}
      io.confluent/kafka-streams-avro-serde {:mvn/version "5.3.2"}
      ; io.confluent/kafka-avro-serializer {:mvn/version "5.3.2"}
-     io.confluent/kafka-schema-registry {:mvn/version "5.3.2" :exclusions [org.apache.kafka/kafka_2.12]}
+     io.confluent/kafka-schema-registry {:mvn/version "5.3.2"}
 
      com.opentable.components/otj-pg-embedded {:mvn/version "0.13.3"}
 
-     ; org.neo4j/neo4j {:mvn/version "4.0.0"}
-     ; org.neo4j.app/neo4j-server {:mvn/version "4.0.0"}
-     org.neo4j/neo4j {:mvn/version "3.5.14"}
-     org.neo4j.app/neo4j-server {:mvn/version "3.5.14"}
+     org.neo4j/neo4j {:mvn/version "4.0.0"}
+     org.neo4j.app/neo4j-server {:mvn/version "4.0.0"}
      }
   :paths ["bin", "library", "conf"]
 }

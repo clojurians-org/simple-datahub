@@ -62,7 +62,7 @@
            , { "urn" (format "urn:li:dataset:(urn:li:dataPlatform:%s,%s,%s)" data-platform schema-name origin) 
              , "aspects"
                  [ { "com.linkedin.pegasus2avro.dataset.DatasetProperties" 
-                     { "description" {"string" schema-name}
+                     { "description" {"string" (or schema-description "") }
                        "uri" nil
                        "tags" []
                        "customProperties" {}
@@ -142,7 +142,6 @@
     ((comp doall sequence) 
       (comp
           (partition-by :schema_name)
-          #_(take 10)
           (map (fn [schema-cols] (println "schema_name: " (-> schema-cols first :schema_name)) schema-cols))
           (map (partial mk-mce-json origin data-platform) )
           (map (partial json->avro mce-schema) )
