@@ -1,11 +1,14 @@
 (ns gms_mae_conduit)
 
 (require '[clojure.java.io :as io])
+(require '[clojure.string :as str])
 (require '[cheshire.core :as json])
 
+(import '[java.net URLEncoder])
 (import '[java.io ByteArrayOutputStream])
 (import '[java.io PipedInputStream PipedOutputStream])
 (import '[org.apache.http.impl.nio.reactor IOReactorConfig])
+(import '[org.apache.http Header])
 
 (import '[org.apache.avro Schema$Parser])
 (import '[org.apache.avro.io DecoderFactory])
@@ -29,12 +32,10 @@
            BulkProcessor BulkProcessor$Listener BackoffPolicy BulkRequest BulkResponse])
 (import '[org.elasticsearch.action.index IndexRequest])
 (import '[org.elasticsearch.action.update UpdateRequest])
-(import '[java.util.function BiConsumer])
+(import '[org.elasticsearch.common.xcontent 
+            XContentFactory XContentType NamedXContentRegistry DeprecationHandler])
 
-(defn json->avro [schema-file m]       
-  (let [schema (.parse (new Schema$Parser) (io/file schema-file))                                 
-        reader (new GenericDatumReader schema)]                                                        
-    (->> m (.jsonDecoder (DecoderFactory/get) schema) (.read reader nil))) )
+(import '[java.util.function BiConsumer])
 
 (defn avro->json [rec]
   (let [ schema (.getSchema rec) 
@@ -46,12 +47,8 @@
     (.toString out-stream) )
   )
 
-(comment
-  (def hosts [(HttpHost. "10.132.37.201" 9092 "http")])
-  )
 (defn mk-es-bulk-processor [hosts]
-  (let [ ; hosts [(HttpHost. "10.132.37.201" 9092 "http")]
-         client (-> (RestClient/builder (into-array hosts)) 
+  (let [ client (-> (RestClient/builder (into-array hosts)) 
                     (.setHttpClientConfigCallback
                       (reify RestClientBuilder$HttpClientConfigCallback
                         (customizeHttpClient [this http-client-builder] 
@@ -65,50 +62,97 @@
          listener (reify BulkProcessor$Listener
                     (beforeBulk [this executionId request])
                     (^void afterBulk [this ^long executionId ^BulkRequest request ^BulkResponse response] 
-                      (println :ok [:num (-> response .getItems .length) :ts (.getTookInMillis response)]) )
+                      (println :ok [:num (-> response .getItems count) :ts (str (.getTook response)) ]) )
                     (^void afterBulk [this ^long executionId ^BulkRequest request ^Throwable failure]
                       (println :error [:message failure]) )) ]
-    (-> (BulkProcessor/builder (reify BiConsumer (accept [this t u] (.bulkAsync client t u)) ) listener)
+    (-> (BulkProcessor/builder (reify BiConsumer (accept [this t u] (.bulkAsync client t u (into-array Header []))) ) listener)
         (.setBulkActions 10000)
         (.setFlushInterval (TimeValue/timeValueSeconds 1))
         (.setBackoffPolicy (BackoffPolicy/exponentialBackoff (TimeValue/timeValueSeconds 1) 3)) 
         .build) )
   )
 
-(defn sink-es [es-bulk-processor m]
-  (let [ index-req (-> (new IndexRequest ) (.source )) 
-         update-req (new UpdateRequest ) 
-         ]
-    update-req
-    #_(.add es-bulk-processor))
+(defn sink-es [es-bulk-processor {urn :urn :as m}]
+  (let [ id (-> urn str/lower-case (URLEncoder/encode "UTF-8"))
+         cb (-> (XContentFactory/jsonBuilder) .prettyPrint) 
+         parser (-> (XContentFactory/xContent XContentType/JSON) 
+                    (.createParser NamedXContentRegistry/EMPTY 
+                                   DeprecationHandler/THROW_UNSUPPORTED_OPERATION 
+                                   (json/generate-string m))) 
+         _ (.copyCurrentStructure cb parser) 
+         index-req (-> (new IndexRequest "datasetdocument" "doc" id) (.source cb)) 
+         update-req (-> (new UpdateRequest "datasetdocument" "doc" id) (.doc cb)
+                        (.detectNoop false) (.upsert index-req) (.retryOnConflict (int 3))) ]
+    (.add es-bulk-processor update-req))
   )
 
-(defn mae->es-doc [mae]
-  
+(defn parse-urn [urn]
+  (let [[_ platform name origin] (re-find #"urn:li:dataset:\(urn:li:dataPlatform:(\S+),(\S+),(\S+)\)" urn) ] 
+    { :name name :origin origin :platform platform :urn urn 
+      :browsePaths [(->> ["" origin platform (str/replace name "." "/")] (str/join "/") str/lower-case)] }) )
+
+(defmulti mk-es-doc 
+  (fn [mae] 
+    (let [identity-type (-> (get-in mae ["newSnapshot"]) ffirst) ]
+      [identity-type, (-> (get-in mae ["newSnapshot" identity-type "aspects"]) first ffirst) ] )))
+
+(def dataset-snapshot "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot")
+(def dataset-properties-aspect "com.linkedin.pegasus2avro.dataset.DatasetProperties")
+(defmethod mk-es-doc [ dataset-snapshot dataset-properties-aspect] [mae]
+  (let [ { urn "urn" [{{ {description "string"} "description" } dataset-properties-aspect} & _] "aspects" } 
+             (get-in mae ["newSnapshot" dataset-snapshot])]
+    (merge (parse-urn urn) {:description description  })  ))
+
+(def dataset-lineage-aspect "com.linkedin.pegasus2avro.dataset.UpstreamLineage" )
+(defmethod mk-es-doc  [ dataset-snapshot dataset-lineage-aspect]  [mae]
+  (let [ { urn "urn" [{{ upstreams "upstreams" } dataset-lineage-aspect} & _] "aspects" } 
+             (get-in mae ["newSnapshot" dataset-snapshot])]
+    (merge (parse-urn urn) {:upstreams (mapv #(% "dataset") upstreams)})  ))
+
+; (def dataset-institutional-aspect "com.linkedin.pegasus2avro.common.InstitutionalMemory")
+(defn entity-last [str] (last (str/split str #":")))
+(def dataset-ownership-aspect "com.linkedin.pegasus2avro.common.Ownership")
+(defmethod mk-es-doc [ dataset-snapshot dataset-ownership-aspect ] [mae]
+  (let [ { urn "urn" [{{ owners "owners" } dataset-ownership-aspect} & _] "aspects" } 
+             (get-in mae ["newSnapshot" dataset-snapshot])]
+    (merge (parse-urn urn) {:hasOwners (some? owners) :owners (mapv #(-> "owner" % entity-last) owners)})))
+
+(def dataset-status-aspect "com.linkedin.pegasus2avro.common.Status" )
+(defmethod mk-es-doc [ dataset-snapshot dataset-status-aspect ] [mae]
+  (let [ { urn "urn" [{{ removed "removed" } dataset-status-aspect} & _] "aspects" } 
+             (get-in mae ["newSnapshot" dataset-snapshot])]
+    (merge (parse-urn urn) {:removed removed}) ))
+
+(def dataset-schema-aspect "com.linkedin.pegasus2avro.schema.SchemaMetadata")
+(defmethod mk-es-doc [ dataset-snapshot dataset-schema-aspect ] [mae]
+  (let [ { urn "urn" [{{ removed "removed" } dataset-schema-aspect} & _] "aspects" } 
+             (get-in mae ["newSnapshot" dataset-snapshot])]
+    (merge (parse-urn urn) {:hasSchema true}) )
   )
+
+(defmethod mk-es-doc :default [mae])
 
 (defn process-single-mae [es-bulk-processor v]
-  (->> v avro->json json/parse-string prn)
-  )
+  (when-let [doc (-> v avro->json json/parse-string mk-es-doc)]
+    (sink-es es-bulk-processor doc)) )
 (defn -main []
   (println "beginning...")
   (let [ conf { StreamsConfig/BOOTSTRAP_SERVERS_CONFIG "10.132.37.201:9092"
                 "schema.registry.url" "http://10.132.37.201:8081"
-                StreamsConfig/APPLICATION_ID_CONFIG "gms-mae-job" 
+                StreamsConfig/APPLICATION_ID_CONFIG "gms-mae-conduit" 
                 StreamsConfig/CLIENT_ID_CONFIG "gms-mae-job-client"
                 StreamsConfig/DEFAULT_KEY_SERDE_CLASS_CONFIG (-> (Serdes/String) class .getName) 
                 StreamsConfig/DEFAULT_VALUE_SERDE_CLASS_CONFIG (.getName GenericAvroSerde) 
                 StreamsConfig/COMMIT_INTERVAL_MS_CONFIG 10000
                 StreamsConfig/CACHE_MAX_BYTES_BUFFERING_CONFIG 0 }
-         es-hosts [ (HttpHost. "10.132.37.201" 9092 "http") ]
-
+         es-hosts [ (HttpHost. "10.132.37.201" 9200 "http") ]
          props (doto (new java.util.Properties) (.putAll conf)) 
          mk-kafka-streams (fn [f] (new KafkaStreams (.build (doto (new StreamsBuilder) f)) props))
-         es-bulk-processor  (mk-es-bulk-processor es-hosts) ]
+         es-bulk-processor (mk-es-bulk-processor es-hosts) ]
     ((comp #(.start %) mk-kafka-streams)
       (fn [stream-builder]
         (-> stream-builder
             (.stream "MetadataAuditEvent")
             (.foreach (reify ForeachAction (apply [this k v] (process-single-mae es-bulk-processor v)))) ))) )
-  (println "finished")
+  (println "kafka stream started-[running]")
   )

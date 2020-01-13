@@ -15,6 +15,7 @@
 
      org.elasticsearch/elasticsearch {:mvn/version "6.8.6"}
      org.elasticsearch.client/elasticsearch-rest-high-level-client {:mvn/version "6.8.6"}
+     org.apache.lucene/lucene-core {:mvn/version "7.7.2"}
      pl.allegro.tech/embedded-elasticsearch {:mvn/version "2.10.0"}
 
      net.cgrand/xforms {:mvn/version "0.19.2"}
