@@ -1,9 +1,9 @@
 {
   :mvn/repos
    { "maven-repos" {:url "https://repo1.maven.org/maven2/"}
-     ; "maven-repos" {:url "http://10.132.37.56:8081/repository/maven-central/"} 
+     ; "maven-repos" {:url "http://10.132.37.56:8081/repository/maven-central/"}
      "clojars.org" {:url "http://clojars.org/repo/"}
-     ; "clojars.org" {:url "http://10.132.37.56:8081/repository/clojars.org"} 
+     ; "clojars.org" {:url "http://10.132.37.56:8081/repository/clojars.org"}
      "confluent" {:url "https://packages.confluent.io/maven"}
      ; "confluent" {:url "http://10.132.37.56:8081/repository/confluent/"}
      }
@@ -31,6 +31,7 @@
      com.opentable.components/otj-pg-embedded {:mvn/version "0.13.3"}
 
      org.neo4j/neo4j {:mvn/version "4.0.0"}
+     org.neo4j.driver/neo4j-java-driver {:mvn/version "4.0.0"}
      org.neo4j.app/neo4j-server {:mvn/version "4.0.0"}
      }
   :paths ["bin", "library", "conf"]

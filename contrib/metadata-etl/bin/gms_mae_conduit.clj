@@ -30,12 +30,13 @@
 (import '[org.elasticsearch.client RestHighLevelClient])
 (import '[org.elasticsearch.action.bulk 
            BulkProcessor BulkProcessor$Listener BackoffPolicy BulkRequest BulkResponse])
-(import '[org.elasticsearch.action.index IndexRequest])
-(import '[org.elasticsearch.action.update UpdateRequest])
+(import '[org.elasticsearch.action index.IndexRequest update.UpdateRequest])
 (import '[org.elasticsearch.common.xcontent 
             XContentFactory XContentType NamedXContentRegistry DeprecationHandler])
 
 (import '[java.util.function BiConsumer])
+
+(import '[org.neo4j.driver GraphDatabase AuthTokens TransactionWork])
 
 (defn avro->json [rec]
   (let [ schema (.getSchema rec) 
@@ -44,7 +45,7 @@
          json-encoder (.jsonEncoder (EncoderFactory/get) schema out-stream) ]
     (.write writer rec json-encoder)
     (.flush json-encoder)
-    (.toString out-stream) )
+    (.toString out-stream "UTF-8") )
   )
 
 (defn mk-es-bulk-processor [hosts]
@@ -69,8 +70,8 @@
         (.setBulkActions 10000)
         (.setFlushInterval (TimeValue/timeValueSeconds 1))
         (.setBackoffPolicy (BackoffPolicy/exponentialBackoff (TimeValue/timeValueSeconds 1) 3)) 
-        .build) )
-  )
+        .build) ))
+(defn mk-neo4j-driver [uri username password] (GraphDatabase/driver uri (AuthTokens/basic username password)))
 
 (defn sink-es [es-bulk-processor {urn :urn :as m}]
   (let [ id (-> urn str/lower-case (URLEncoder/encode "UTF-8"))
@@ -86,6 +87,19 @@
     (.add es-bulk-processor update-req))
   )
 
+(defn add-neo4j-entities [driver entitites]
+  ; [^statusAspect :removed :uri :name :platform :origin]
+  (let [node-type ":`com.linkedin.metadata.entity.DatasetEntity" 
+        statement (format "MERGE (node%s {urn: $urn}) ON CREATE SET node%s SET node = $properties RETURN node" 
+                          node-type node-type)
+        f (fn [tx] (doseq [{urn "urn" :as entity} (clojure.walk/stringify-keys entitites) ] 
+                     (.run tx statement {"urn" urn "properties" (mapv entity ["name" "platform" "origin"]) }))) ]
+    (with-open [session (.session driver)] (.writeTransaction session (reify TransactionWork (execute [this tx] (f tx))))) )
+  )
+
+(comment
+  (mk-neo4j-driver "bolt://localhost" "neo4j" "datahub")
+  )
 (defn parse-urn [urn]
   (let [[_ platform name origin] (re-find #"urn:li:dataset:\(urn:li:dataPlatform:(\S+),(\S+),(\S+)\)" urn) ] 
     { :name name :origin origin :platform platform :urn urn 
@@ -96,8 +110,18 @@
     (let [identity-type (-> (get-in mae ["newSnapshot"]) ffirst) ]
       [identity-type, (-> (get-in mae ["newSnapshot" identity-type "aspects"]) first ffirst) ] )))
 
+(defmulti mk-neo4j-rel
+  (fn [mae] 
+    (let [identity-type (-> (get-in mae ["newSnapshot"]) ffirst) ]
+      [identity-type, (-> (get-in mae ["newSnapshot" identity-type "aspects"]) first ffirst) ] )))
+
+(def user-entity-type ":`com.linkedin.metadata.entity.CorpUserEntity`")
 (def dataset-snapshot "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot")
 (def dataset-properties-aspect "com.linkedin.pegasus2avro.dataset.DatasetProperties")
+(def dataset-entity-type ":`com.linkedin.metadata.entity.DatasetEntity`")
+(def dataset-relationship-OwnedBy  "com.linkedin.metadata.relationship.OwnedBy")
+(def dataset-relationship-DownstreamOf  "com.linkedin.metadata.relationship.DownstreamOf")
+
 (defmethod mk-es-doc [ dataset-snapshot dataset-properties-aspect] [mae]
   (let [ { urn "urn" [{{ {description "string"} "description" } dataset-properties-aspect} & _] "aspects" } 
              (get-in mae ["newSnapshot" dataset-snapshot])]
@@ -109,6 +133,24 @@
              (get-in mae ["newSnapshot" dataset-snapshot])]
     (merge (parse-urn urn) {:upstreams (mapv #(% "dataset") upstreams)})  ))
 
+(defmethod mk-neo4j-rel [ dataset-snapshot dataset-lineage-aspect ] [mae]
+  (let [ { urn "urn" [{{ upstreams "upstreams" } dataset-lineage-aspect} & _] "aspects" } 
+             (get-in mae ["newSnapshot" dataset-snapshot]) ]
+    (concat 
+      [ { :statement (format "MATCH (source%s {urn: $urn})-[relation:%s]->() DELETE relation" 
+                             dataset-entity-type dataset-relationship-DownstreamOf) 
+          :params {"urn" urn}} 
+        { :statement (format "MERGE (node%s {urn: $urn}) RETURN node" dataset-entity-type)
+          :params {"urn" urn}} ]
+      (doseq [{dest-urn "dataset"} upstreams] 
+        { :statement (format "MERGE (node%s {urn: $urn}) RETURN node" dataset-entity-type)
+          :params {"urn" dest-urn} }
+        { :statement (format "MATCH (source%s {urn: $sourceUrn}),(destination%s {urn: $destinationUrn}) MERGE (source)-[r:%s]->(destination) SET r = $properties"
+                             dataset-entity-type dataset-entity-type)
+          :params {"sourceUrn" urn
+                   "destinationUrn" dest-urn
+                   "properties" {}}})) ))
+
 ; (def dataset-institutional-aspect "com.linkedin.pegasus2avro.common.InstitutionalMemory")
 (defn entity-last [str] (last (str/split str #":")))
 (def dataset-ownership-aspect "com.linkedin.pegasus2avro.common.Ownership")
@@ -116,6 +158,23 @@
   (let [ { urn "urn" [{{ owners "owners" } dataset-ownership-aspect} & _] "aspects" } 
              (get-in mae ["newSnapshot" dataset-snapshot])]
     (merge (parse-urn urn) {:hasOwners (some? owners) :owners (mapv #(-> "owner" % entity-last) owners)})))
+(defmethod mk-neo4j-rel [ dataset-snapshot dataset-ownership-aspect ] [mae]
+  (let [ { urn "urn" [{{ upstreams "upstreams" } dataset-lineage-aspect} & _] "aspects" } 
+             (get-in mae ["newSnapshot" dataset-snapshot]) ]
+    (concat 
+      [ { :statement (format "MATCH (source%s {urn: $urn})-[relation:%s]->() DELETE relation" 
+                             dataset-entity-type dataset-relationship-OwnedBy) 
+          :params {"urn" urn}} 
+        { :statement (format "MERGE (node%s {urn: $urn}) RETURN node" dataset-entity-type)
+          :params {"urn" urn}} ]
+      (doseq [{dest-urn "dataset"} upstreams] 
+        { :statement (format "MERGE (node%s {urn: $urn}) RETURN node" user-entity-type)
+          :params {"urn" dest-urn} }
+        { :statement (format "MATCH (source%s {urn: $sourceUrn}),(destination%s {urn: $destinationUrn}) MERGE (source)-[r:%s]->(destination) SET r = $properties"
+                             dataset-entity-type user-entity-type)
+          :params {"sourceUrn" urn
+                   "destinationUrn" dest-urn
+                   "properties" {}}})) ))
 
 (def dataset-status-aspect "com.linkedin.pegasus2avro.common.Status" )
 (defmethod mk-es-doc [ dataset-snapshot dataset-status-aspect ] [mae]
