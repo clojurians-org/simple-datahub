@@ -1,0 +1,102 @@
+name:                queryparser-hive
+
+-- The package version.  See the Haskell package versioning policy (PVP)
+-- for standards guiding when and how versions should be incremented.
+-- http://www.haskell.org/haskellwiki/Package_versioning_policy
+-- PVP summary:      +-+------- breaking API changes
+--                   | | +----- non-breaking API additions
+--                   | | | +--- code changes with no API change
+version:             0.1.0.1
+
+-- A short (one-line) description of the package.
+synopsis:            Parsing for Hive SQL queries
+
+-- A longer description of the package.
+description:
+            A library for parsing Hive SQL queries into analyzable ASTs.
+            .
+            This library is to be used with the queryparser library, which
+            provides the common type definitions and analyses across the
+            different SQL dialects.
+
+-- The license under which the package is released.
+license:             MIT
+
+-- The file containing the license text.
+license-file:        LICENSE
+
+-- The package author(s).
+author:              Heli Wang, David Thomas, Matt Halverson
+
+-- An email address to which users can send suggestions, bug reports, and
+-- patches.
+maintainer:          heli@uber.com
+
+-- A copyright notice.
+-- copyright:
+
+category:            Database
+
+build-type:          Simple
+
+-- Extra files to be distributed with the package, such as examples or a
+-- README.
+extra-source-files:  CHANGELOG.md
+
+-- Constraint on the version of Cabal needed to build this package.
+cabal-version:       >=1.10
+
+flag development {
+    description: Enable development level of strictness
+    default: False
+    manual: True
+}
+
+library
+  -- Modules exported by the library.
+  exposed-modules:     Database.Sql.Hive.Parser
+                     , Database.Sql.Hive.Parser.Token
+                     , Database.Sql.Hive.Scanner
+                     , Database.Sql.Hive.Token
+                     , Database.Sql.Hive.Type
+                     , Database.Sql.Hive.Parser.Internal
+
+  -- Modules included in this library but not exported.
+  -- other-modules:
+
+  default-extensions:  OverloadedStrings
+                     , LambdaCase
+                     , RecordWildCards
+                     , TupleSections
+                     , ConstraintKinds
+                     , FlexibleInstances
+
+  -- Other library packages from which modules are imported.
+  build-depends:       base >=4.9 && <5
+                     , text >=1.2 && <1.3
+                     , bytestring
+                     , queryparser
+                     , containers
+                     , semigroups >= 0.16
+                     , mtl >= 2.2 && < 2.3
+                     , parsec >= 3.1 && < 3.2
+                     , pretty >= 1.1 && < 1.2
+                     , aeson >= 0.8
+                     , yaml >= 0.8 && < 0.9
+                     , unordered-containers
+                     , hashable
+                     , QuickCheck
+                     , regex-tdfa
+                     , fixed-list
+
+  -- Directories containing source files.
+  hs-source-dirs:      src
+
+
+  ghc-options:         -Wall -Wno-redundant-constraints
+
+  if flag(development)
+    ghc-options:       -Werror
+
+  -- Base language which the package is written in.
+  default-language:    Haskell2010

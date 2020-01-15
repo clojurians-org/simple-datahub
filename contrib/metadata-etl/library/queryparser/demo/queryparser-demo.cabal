@@ -1,0 +1,30 @@
+name:                queryparser-demo
+version:             0.1.0.0
+synopsis:            Demo package containing queryparser examples
+description:
+            Library containing sample queryparser calls, for user exploration and
+            playgrounding.
+license:             MIT
+license-file:        LICENSE
+author:              Heli Wang, David Thomas, Matt Halverson
+maintainer:          heli@uber.com
+-- copyright:
+category:            Database
+build-type:          Simple
+extra-source-files:
+                     CHANGELOG.md
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Demo
+  -- other-modules:
+  -- other-extensions:
+  build-depends:       base >=4.9 && <5
+                     , queryparser
+                     , queryparser-vertica
+                     , unordered-containers >=0.2 && <0.3
+                     , containers >=0.5 && <0.6
+                     , text >=1.2 && <1.3
+                     , pretty >=1.1 && <1.2
+  hs-source-dirs:      src
+  default-language:    Haskell2010
