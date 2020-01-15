@@ -19,7 +19,8 @@ mkShell {
   buildInputs = [
     (haskellPackages.ghcWithPackages ( p: 
       [ p.bytestring p.text p.string-conversions
-        p.aeson p.aeson-pretty p.lens
+        p.aeson p.aeson-qq p.aeson-pretty 
+        p.lens p.conduit
         p.hssqlppp p.queryparser p.queryparser-hive ]
     ))
   ];
