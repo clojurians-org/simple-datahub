@@ -11,13 +11,16 @@ let
         # }) 
         ./library/queryparser
       {}) ;
+      queryparser-hive = doJailbreak(self.callCabal2nix "queryparser-hive" ./library/queryparser/dialects/hive {}) ;
     } ;
   };
 in 
 mkShell {
   buildInputs = [
     (haskellPackages.ghcWithPackages ( p: 
-      [ p.text p.lens p.hssqlppp p.queryparser ]
+      [ p.bytestring p.text p.string-conversions
+        p.aeson p.aeson-pretty p.lens
+        p.hssqlppp p.queryparser p.queryparser-hive ]
     ))
   ];
 }
