@@ -119,6 +119,15 @@ cd datahub-frontend/run && ./run-local-frontend
 
 * 项目采集工具
   请确保nix已安装, 可参见[软件开发环境]章节, 切换至contrib/metadata-etl目录
+  clj命令相关配置文件入口: conf/dataset-jdbc.conf.edn
+** 测试文件列表
+  |--------------------------+---------+----------------------|
+  | 文件名                   | 类型    | 描述                 |
+  |--------------------------+---------+----------------------|
+  | metadata_sample/demo.dat | ENTITY  | dataset/user实体文件 |
+  | hive_1.sql               | ETL-SQL | HIVE SQL ETL过程     |
+  | pg_procedure.sql         | ETL-SQL | Postgresql 存储过程  |
+  |--------------------------+---------+----------------------|
 ** 接口文件格式采集
 #+BEGIN_SRC
     # 未来标准接口: cat metadata_sample/demo.dat | clj -m gmscat
@@ -131,20 +140,21 @@ cd datahub-frontend/run && ./run-local-frontend
     # 未来标准接口: clj -m dataset_jdbc_generator :jdbc.ora/edw | clj -m gmscat
     clj -m dataset_jdbc_connector :jdbc.ora/edw
 #+END_SRC
-  - HIVE查询采集
-  - KAFKA查询采集
-  - ES查询采集
-  - ClickHouse查询采集
-  - Cassandra查询采集
+  - HIVE 查询采集
+  - KAFKA 查询采集
+  - ES 查询采集
+  - ClickHouse 查询采集
+  - Cassandra 查询采集
 
 ** 血缘分析采集
 + HIVE SQL解析采集
-    脚本需要传递文件列表，可采用ls, find, 或者cat *.list各种形式得到.
+    脚本需要传递文件列表 - [可采用ls, find, 或者cat *.list各种形式得到]
 #+BEGIN_SRC
+    export NIX_PATH=~/.nix-defexpr/channels
     ls metadata_sample/hive_*.sql | bin/lineage_hive_generator.hs
     find . -name "*.sql" | grep hive | bin/lineage_hive_generator.hs
 #+END_SRC
 + ORACLE SQL解析采集
 
 ** 工作流采集
-  1. airflow
+  - airflow
