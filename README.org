@@ -2,17 +2,20 @@
 
 * 项目说明:
   此项目基于LinkedIn Datahub元数据平台二次开发, 进行简化改造及功能扩展
-  - 去除docker依赖[完成]
-  - 切换到postgresql数据集[完成]
+  - [OK] 去除docker依赖
+  - [OK] 切换到postgresql数据集
+  - 将外部系统初始化脚本集成至gms系统中[分析中]
   - UI中文支持 [部分完成]
   - 提供clojure/haskell 数据库模式脚本功能 [部分完成]
   - 切换MAE/MCE作业成clojure/haskell脚本模式[部分完成]
   - 集成血缘分析haskell(queryparser/hssqlppp)脚本功能 [开发中]
+
   - 添加调度器airflow集成[分析中]
   - 增加ETLCode实体类型及clojure/haskell脚本 [分析中]
   - 集成数据质量Apache Griffin平台 [分析中]
   - 添加apache-flink实时计算clojure脚本支持[分析中]
   - 切换至typescript + react前端技术重构[分析中]
+  - 切换至NIX集群部署模式[分析中]
 
 * 项目外部系统依赖
   - Kafka 及Kafka schema-registry集群 [实时计算及事件触发]
@@ -21,17 +24,12 @@
   - Neo4j数据库 [实体关系模型]
 
 * 软件开发环境
-** nix
+** nix软件包管理器
   1. 安装nix => [https://nixos.wiki/wiki/Nix_Installation_Guide]
   1. 添加nixos-19.09 channel并更新
 #+BEGIN_SRC bash
     nix-channel --add https://nixos.org/channels/nixos-19.09
     nix-channel --update nixos-19.09
-#+END_SRC
-** clojure[部分依赖, 后期将自动化到nix脚本中]
-#+BEGIN_SRC bash
-    export NIX_PATH=~/.nix-defexpr/channels # 导出所有channel
-    nix-env -f '<nixos-19.09>' -iA clojure
 #+END_SRC
 
 * 运行流程及部署过程
@@ -39,9 +37,9 @@
   此项目由三部分组成: Kafka-Stream MCE/MAE作业, gms后台服务,  datahub-frontend前台服务
   1. 上游ETL脚本推送avro数据至Kafka Topic[MetadataChangeEvent]
   2. MCE作业读取Kafka[MetadataChangeEvent]数据写入gms后台
-  3. gms后台写入postgresql, 并发送数据至Kafka[MetadataAuditEvent]
+  3. gms后台写入postgresql, 比较变更前后的值推送Kafka事件[MetadataAuditEvent]
   4. MAE作业读取Kafka[MetadataAuditEvent], 写入数据至ES及neo4j
-  5. datahub-rontend前端通过gms数据服务[postgresql + elasticsearch + neo4j]访问元数据
+  5. datahub-frontend前端通过gms元数据服务[postgresql + elasticsearch + neo4j]访问元数据
 
 ** 二. 部署过程
 *** 外部系统准备
@@ -67,7 +65,6 @@
 #+BEGIN_SRC bash
   curl -H 'Content-Type: Application/JSON' -XPUT 10.132.37.201:9200/corpuserinfodocument --data @./nix/corpuser-index-config.json;
   curl -H 'Content-Type: Application/JSON' -XPUT 10.132.37.201:9200/datasetdocument --data @./nix/dataset-index-config.json
-
   curl -H 'Content-Type: Application/JSON' -XPUT 10.132.37.201:9200/datasetdocument/doc/_mapping --data @./nix/dataset-index-mapping.json
 #+END_SRC
 
@@ -117,28 +114,44 @@ cd datahub-frontend/run && ./run-local-frontend
 #+END_SRC
 
 
-* 项目采集工具
+* 项目采集工具:
+#+BEGIN_SRC
   请确保nix已安装, 可参见[软件开发环境]章节, 切换至contrib/metadata-etl目录
-  clj命令相关配置文件入口: conf/dataset-jdbc.conf.edn
+  clj命令相关配置文件入口: conf/gms.conf.edn
+#+END_SRC
 ** 测试文件列表
-  |--------------------------+---------+----------------------|
-  | 文件名                   | 类型    | 描述                 |
-  |--------------------------+---------+----------------------|
-  | metadata_sample/demo.dat | ENTITY  | dataset/user实体文件 |
-  | hive_1.sql               | ETL-SQL | HIVE SQL ETL过程     |
-  | pg_procedure.sql         | ETL-SQL | Postgresql 存储过程  |
-  |--------------------------+---------+----------------------|
+  |----------------------------------+---------+----------------------|
+  | 文件名                           | 类型    | 描述                 |
+  |----------------------------------+---------+----------------------|
+  | metadata_sample/demo.dat         | ENTITY  | dataset/user实体文件 |
+  | metadata_sample/hive_1.sql       | ETL-SQL | HIVE SQL ETL过程     |
+  | metadata_sample/pg_procedure.sql | ETL-SQL | Postgresql 存储过程  |
+  |----------------------------------+---------+----------------------|
+
+** 命令行文件列表
+  |----------------------------------+---------------+--------------------------+----------------------------------------------------------------|
+  | 文件名                           | 类型          | 描述                     | 支持系统                                                       |
+  |----------------------------------+---------------+--------------------------+----------------------------------------------------------------|
+  | bin/gmscat.clj                   | producer:clj  | 推送接口数据至GMS存储    | JSON输入流                                                     |
+  | bin/dataset_jdbc_generator.clj   | generator:clj | 查询JDBC数据表模式       | PostgreSQL/MySQL/Oracle/SQL Server                             |
+  | bin/lineage_hive_generator.hs    | generator:hs  | 解析HIVE SQL生成血缘关系 | HIVE                                                           |
+  |----------------------------------+---------------+--------------------------+----------------------------------------------------------------|
+  | bin/gms_dependency_sandbox.clj   | sandbox:clj   | 启动本地GMS依赖服务      | Kafka, Kafka Schema-Registry, PostgreSQL, ElasticSearch, Neo4j |
+  | bin/gms_mae_conduit.clj          | job:clj       | mae事件作业              | # 未来合并mce,mae作业                                          |
+  | bin/procedure_jdbc_connector.clj | fetcher:clj   | 拉取oracle存储过程       | Oracle                                                         |
+  |----------------------------------+---------------+--------------------------+----------------------------------------------------------------|
+
 ** 接口文件格式采集
 #+BEGIN_SRC
-    # 未来标准接口: cat metadata_sample/demo.dat | clj -m gmscat
-    clj -m dataset_file_connector :file/demo-dat
+    export NIX_PATH=~/.nix-defexpr/channels
+    cat metadata_sample/demo.dat | bin/gmscat.clj
 #+END_SRC
 
-** 数据集采集 [未来标准接口采用管道方式, 方便本地留存及演示数据备份]
+** 数据集模式采集 [未来标准接口采用管道方式, 方便本地留存及演示数据备份]
   - JDBC查询采集
 #+BEGIN_SRC
-    # 未来标准接口: clj -m dataset_jdbc_generator :jdbc.ora/edw | clj -m gmscat
-    clj -m dataset_jdbc_connector :jdbc.ora/edw
+    export NIX_PATH=~/.nix-defexpr/channels
+    bin/dataset_jdbc_generator.clj :jdbc.ora/edw | bin/gmscat.clj
 #+END_SRC
   - HIVE 查询采集
   - KAFKA 查询采集

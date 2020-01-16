@@ -1,3 +1,6 @@
+#! /usr/bin/env nix-shell
+#! nix-shell ../clj.deps.nix -i "clj -Sdeps '$(cat ../deps.edn)'"
+
 (ns dataset_jdbc_connector)
 
 (require '[clojure.edn :as edn])
@@ -107,14 +110,14 @@
 
 (defn load-selector-conf [args]
   (when (not= (count args) 1) 
-    (println "** the selector paramter is missing!")
+    (.println *err* "** the selector paramter is missing!")
     (System/exit 1) )
   (let [selector (edn/read-string (first *command-line-args*))
         conf (-> "./dataset-jdbc.conf.edn" io/resource slurp edn/read-string selector)] 
     (when (nil? conf) 
-      (println "** the selector conf is missing!")
+      (.println *err* "** the selector conf is missing!")
       (System/exit 1)) 
-    (pprint/pprint conf)
+    (.println *err* (with-out-str (pprint/pprint conf)) ) 
     conf ))
 
 (defn test-conf []
@@ -123,9 +126,8 @@
       :out { :kafka { "bootstrap.servers" "10.132.37.201:9092"
                     , "schema.registry.url" "http://10.132.37.201:8081" }} } )
 
-(def mce-schema "../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc")
 (defn -main [& args]
-  (println "starting...")
+  (.println *err* "starting...")
   (let [ conf (load-selector-conf args) 
        ; conf (test-conf)
        db (get-in conf [:in :db])
@@ -134,23 +136,21 @@
        kafka-conf (merge (get-in conf [:out :kafka]) 
                          { "key.serializer" "org.apache.kafka.common.serialization.StringSerializer"
                          , "value.serializer" "io.confluent.kafka.serializers.KafkaAvroSerializer" }) 
-       _ (println "** kafka-conf" kafka-conf)
+       _ (.println *err* "** kafka-conf" kafka-conf)
        prop (doto (new java.util.Properties) (.putAll kafka-conf)) 
        kp (new KafkaProducer prop)
        kafka-send (fn [rec] (-> kp (.send (new ProducerRecord "MetadataChangeEvent" rec) ) ) )]
-    (println "** params: " [:origin origin :data-platform data-platform])
+    (.println *err* "** params: " [:origin origin :data-platform data-platform])
     ((comp doall sequence) 
       (comp
           (partition-by :schema_name)
-          (map (fn [schema-cols] (println "schema_name: " (-> schema-cols first :schema_name)) schema-cols))
+          (map (fn [schema-cols] (.println *err* "schema_name: " (-> schema-cols first :schema_name)) schema-cols))
           (map (partial mk-mce-json origin data-platform) )
-          (map (partial json->avro mce-schema) )
-          (map kafka-send)
+          (map println)
           x/count
-          (map (partial println "total table num: "))
+          (map #(.println *err* "total table num: " %))
           )
       (j/query db (find-db-query db)) )
     (.flush kp) )
-  (println "finished") 
+  (.println *err* "finished") 
   )
-

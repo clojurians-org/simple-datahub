@@ -1,7 +1,6 @@
-{ :file/demo-dat
-    { :in { :file { :path "./metadata_sample/demo.dat" } }
-      :out { :kafka { "bootstrap.servers" "10.132.37.201:9092"
-                    , "schema.registry.url" "http://10.132.37.201:8081" }} }
+{ :gmscat/uat
+    { :connect { :kafka { "bootstrap.servers" "10.132.37.201:9092"
+                        , "schema.registry.url" "http://10.132.37.201:8081" }} }
   :jdbc.ora/edw 
     { :in { :db { :dbtype "oracle:thin" :dbname "EDWDB" :host "10.129.35.227" :user "comm" :password "comm" } } 
       :params {:origin "DEV" }

@@ -1,4 +1,7 @@
-(ns dataset_file_connector)
+#! /usr/bin/env nix-shell
+#! nix-shell ../clj.deps.nix -i "clj -Sdeps '$(cat ../deps.edn)'"
+
+(ns gmscat)
 
 (require '[clojure.edn :as edn])
 (require '[clojure.pprint :as pprint])
@@ -25,7 +28,7 @@
     (println "** the selector paramter is missing!")
     (System/exit 1) )
   (let [selector (edn/read-string (first *command-line-args*))
-        conf (-> "./dataset-jdbc.conf.edn" io/resource slurp edn/read-string selector)] 
+        conf (-> "./gms.conf.edn" io/resource slurp edn/read-string selector)] 
     (when (nil? conf) 
       (println "** the selector conf is missing!")
       (System/exit 1)) 
@@ -33,17 +36,15 @@
     conf ))
 
 (defn test-conf []
-    { :in { :file {:path "demo.dat" } }
-      :out { :kafka { "bootstrap.servers" "10.132.37.201:9092"
-                    , "schema.registry.url" "http://10.132.37.201:8081" }} })
+    { :connect { :kafka { "bootstrap.servers" "10.132.37.201:9092"
+                        , "schema.registry.url" "http://10.132.37.201:8081" }} })
 
 (def mce-schema "../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc")
 (defn -main [& args]
   (println "starting...")
   (let [ conf (load-selector-conf args) 
        ; conf (test-conf)
-       file-path (get-in conf [:in :file :path])
-       kafka-conf (merge (get-in conf [:out :kafka]) 
+       kafka-conf (merge (get-in conf [:connect :kafka]) 
                          { "key.serializer" "org.apache.kafka.common.serialization.StringSerializer"
                          , "value.serializer" "io.confluent.kafka.serializers.KafkaAvroSerializer" }) 
        _ (println "** kafka-conf" kafka-conf)
@@ -57,7 +58,7 @@
           x/count
           (map (partial println "total table num: "))
           )
-      (-> file-path slurp clojure.string/split-lines))
+     (-> *in* io/reader line-seq))
     (.flush kp) )
   (println "finished") 
   )

@@ -1,5 +1,5 @@
 #! /usr/bin/env nix-shell
-#! nix-shell ../deps.nix -i runghc
+#! nix-shell ../hs.deps.nix -i runghc
 
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}

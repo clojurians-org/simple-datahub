@@ -1,3 +1,6 @@
+#! /usr/bin/env nix-shell                                                         
+#! nix-shell ../clj.deps.nix -i "clj -Sdeps '$(cat ../deps.edn)'"                 
+
 (ns gms_mae_conduit)
 
 (require '[clojure.java.io :as io])

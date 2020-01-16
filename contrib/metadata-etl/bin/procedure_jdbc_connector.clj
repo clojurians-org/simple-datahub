@@ -1,3 +1,6 @@
+#! /usr/bin/env nix-shell
+#! nix-shell ../clj.deps.nix -i "clj -Sdeps '$(cat ../deps.edn)'"
+
 (ns procedure_oracle_connector)
 
 (require '[clojure.java.jdbc :as j])

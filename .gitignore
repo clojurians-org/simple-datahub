@@ -1,3 +1,10 @@
+*~
+*#
+.*.swp
+.*.swo
+.DS_Store
+test.*
+
 # Gradle & Avro
 .project
 .settings
@@ -21,3 +28,4 @@
 
 # Mac OS
 **/.DS_Store
+
