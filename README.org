@@ -5,19 +5,34 @@
   - 去除docker依赖[完成]
   - 切换到postgresql数据集[完成]
   - UI中文支持 [部分完成]
-  - 提供clojure/haskell 数据库模式脚本功能 [开发中]
-  - 增加ETLCode实体类型及clojure/haskell脚本 [分析中]
-  - 切换MAE/MCE作业成clojure/haskell脚本模式[分析中]
+  - 提供clojure/haskell 数据库模式脚本功能 [部分完成]
+  - 切换MAE/MCE作业成clojure/haskell脚本模式[部分完成]
   - 集成血缘分析haskell(queryparser/hssqlppp)脚本功能 [开发中]
+  - 添加调度器airflow集成[分析中]
+  - 增加ETLCode实体类型及clojure/haskell脚本 [分析中]
   - 集成数据质量Apache Griffin平台 [分析中]
   - 添加apache-flink实时计算clojure脚本支持[分析中]
-  - 切换至typescript + react前端技术重构
+  - 切换至typescript + react前端技术重构[分析中]
 
-* 项目依赖
+* 项目外部系统依赖
   - Kafka 及Kafka schema-registry集群 [实时计算及事件触发]
   - PostgreSQL数据库 [存储功能]
   - ElasticSearch数据库 [搜索功能]
   - Neo4j数据库 [实体关系模型]
+
+* 软件开发环境
+** nix
+  1. 安装nix => [https://nixos.wiki/wiki/Nix_Installation_Guide]
+  1. 添加nixos-19.09 channel并更新
+#+BEGIN_SRC bash
+    nix-channel --add https://nixos.org/channels/nixos-19.09
+    nix-channel --update nixos-19.09
+#+END_SRC
+** clojure[部分依赖, 后期将自动化到nix脚本中]
+#+BEGIN_SRC bash
+    export NIX_PATH=~/.nix-defexpr/channels # 导出所有channel
+    nix-env -f '<nixos-19.09>' -iA clojure
+#+END_SRC
 
 * 运行流程及部署过程
 ** 一. 运行流程:
@@ -102,29 +117,34 @@ cd datahub-frontend/run && ./run-local-frontend
 #+END_SRC
 
 
-*** ETL集成过程[表结构 <> ETL <> 血缘分析]
-  - 测试数据集ETL脚本
-#+BEGIN_SRC bash
-./gradlew :metadata-events:mxe-schemas:build
-python mce_cli.py produce -d bootstrap_mce.dat -b 10.132.37.201:9092 -s http://10.132.37.201:8081
+* 项目采集工具
+  请确保nix已安装, 可参见[软件开发环境]章节, 切换至contrib/metadata-etl目录
+** 接口文件格式采集
+#+BEGIN_SRC
+    # 未来标准接口: cat metadata_sample/demo.dat | clj -m gmscat
+    clj -m dataset_file_connector :file/demo-dat
 #+END_SRC
-  - oracle ETL脚本
-  - mysql ETL脚本
-  - postgresql ETL脚本
-  - hive ETL脚本
 
+** 数据集采集 [未来标准接口采用管道方式, 方便本地留存及演示数据备份]
+  - JDBC查询采集
+#+BEGIN_SRC
+    # 未来标准接口: clj -m dataset_jdbc_generator :jdbc.ora/edw | clj -m gmscat
+    clj -m dataset_jdbc_connector :jdbc.ora/edw
+#+END_SRC
+  - HIVE查询采集
+  - KAFKA查询采集
+  - ES查询采集
+  - ClickHouse查询采集
+  - Cassandra查询采集
 
-* 项目模块
-** datahub-frontend + datahub-web
-datahub-frontend 负责后台功能， datahub-web负责前端页面
-** gms
-元数据后台服务
-** metadata-jobs
-kafka streams实时计算作业
-** metadata-ingestion
-外部元数据采集脚本
-** metadata-dao + metadata-dao-impl
-外部系统elasticsearch, neo4j, postgresql, kafka, rest 数据层封装
-** metadata-events
-元数据模式定义
+** 血缘分析采集
++ HIVE SQL解析采集
+    脚本需要传递文件列表，可采用ls, find, 或者cat *.list各种形式得到.
+#+BEGIN_SRC
+    ls metadata_sample/hive_*.sql | bin/lineage_hive_generator.hs
+    find . -name "*.sql" | grep hive | bin/lineage_hive_generator.hs
+#+END_SRC
++ ORACLE SQL解析采集
 
+** 工作流采集
+  1. airflow
