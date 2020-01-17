@@ -4,10 +4,10 @@ clj -m gms_mae_conduit
 # bin/gms_flink.clj
 
 # 2. load interface file
-cat metadata_sample/demo.dat | bin/gmscat.clj
+cat metadata_sample/demo.dat | bin/gmscat.clj :gmscat/uat
 
 # 3. load jdbc dataset schema
-bin/dataset_jdbc_generator.clj :jdbc.ora/edw | bin/gmscat.clj
+bin/dataset_jdbc_generator.clj :jdbc.ora/edw | bin/gmscat.clj :gmscat/uat
 
 # 4. load hive lineage by paring sql files
 ls metadata_sample/hive_*.sql | bin/lineage_hive_generator.hs

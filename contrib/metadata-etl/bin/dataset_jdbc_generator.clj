@@ -1,7 +1,7 @@
 #! /usr/bin/env nix-shell
-#! nix-shell ../clj.deps.nix -i "clj -Sdeps '$(cat ../deps.edn)'"
+#! nix-shell ../clj.deps.nix -i "clj -m dataset_jdbc_generator"
 
-(ns dataset_jdbc_connector)
+(ns dataset_jdbc_generator)
 
 (require '[clojure.edn :as edn])
 (require '[clojure.pprint :as pprint])
@@ -109,11 +109,12 @@
     (->> m (.jsonDecoder (DecoderFactory/get) schema) (.read reader nil))) )
 
 (defn load-selector-conf [args]
-  (when (not= (count args) 1) 
+  (.println *err* (str args))
+  (when (not= (count args) 2) 
     (.println *err* "** the selector paramter is missing!")
     (System/exit 1) )
-  (let [selector (edn/read-string (first *command-line-args*))
-        conf (-> "./dataset-jdbc.conf.edn" io/resource slurp edn/read-string selector)] 
+  (let [selector (edn/read-string (second args))
+        conf (-> "./gms.conf.edn" io/resource slurp edn/read-string selector)] 
     (when (nil? conf) 
       (.println *err* "** the selector conf is missing!")
       (System/exit 1)) 
@@ -136,19 +137,21 @@
        kafka-conf (merge (get-in conf [:out :kafka]) 
                          { "key.serializer" "org.apache.kafka.common.serialization.StringSerializer"
                          , "value.serializer" "io.confluent.kafka.serializers.KafkaAvroSerializer" }) 
-       _ (.println *err* "** kafka-conf" kafka-conf)
+       _ (.println *err* ["** kafka-conf" kafka-conf])
        prop (doto (new java.util.Properties) (.putAll kafka-conf)) 
-       kp (new KafkaProducer prop)
+       _ (System/setOut System/err)
+       kp (binding [*out* *err*] (new KafkaProducer prop))
+       _ (System/setOut System/out)
        kafka-send (fn [rec] (-> kp (.send (new ProducerRecord "MetadataChangeEvent" rec) ) ) )]
-    (.println *err* "** params: " [:origin origin :data-platform data-platform])
+    (.println *err* ["** params: " [:origin origin :data-platform data-platform]])
     ((comp doall sequence) 
       (comp
           (partition-by :schema_name)
-          (map (fn [schema-cols] (.println *err* "schema_name: " (-> schema-cols first :schema_name)) schema-cols))
+          (map (fn [schema-cols] (.println *err* ["schema_name: " (-> schema-cols first :schema_name)]) schema-cols))
           (map (partial mk-mce-json origin data-platform) )
           (map println)
           x/count
-          (map #(.println *err* "total table num: " %))
+          (map #(.println *err* ["total table num: " %]))
           )
       (j/query db (find-db-query db)) )
     (.flush kp) )

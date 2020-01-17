@@ -1,5 +1,5 @@
 #! /usr/bin/env nix-shell
-#! nix-shell ../clj.deps.nix -i "clj -Sdeps '$(cat ../deps.edn)'"
+#! nix-shell ../clj.deps.nix -i "clj -m gmscat"
 
 (ns gmscat)
 
@@ -24,10 +24,10 @@
     (->> m (.jsonDecoder (DecoderFactory/get) schema) (.read reader nil))) )
 
 (defn load-selector-conf [args]
-  (when (not= (count args) 1) 
+  (when (not= (count args) 2) 
     (println "** the selector paramter is missing!")
     (System/exit 1) )
-  (let [selector (edn/read-string (first *command-line-args*))
+  (let [selector (edn/read-string (second *command-line-args*))
         conf (-> "./gms.conf.edn" io/resource slurp edn/read-string selector)] 
     (when (nil? conf) 
       (println "** the selector conf is missing!")

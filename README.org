@@ -144,14 +144,14 @@ cd datahub-frontend/run && ./run-local-frontend
 ** 接口文件格式采集
 #+BEGIN_SRC
     export NIX_PATH=~/.nix-defexpr/channels
-    cat metadata_sample/demo.dat | bin/gmscat.clj
+    cat metadata_sample/demo.dat | bin/gmscat.clj :gmscat/uat
 #+END_SRC
 
 ** 数据集模式采集 [未来标准接口采用管道方式, 方便本地留存及演示数据备份]
   - JDBC查询采集
 #+BEGIN_SRC
     export NIX_PATH=~/.nix-defexpr/channels
-    bin/dataset_jdbc_generator.clj :jdbc.ora/edw | bin/gmscat.clj
+    bin/dataset_jdbc_generator.clj :jdbc.ora/edw | bin/gmscat.clj :gmscat/uat
 #+END_SRC
   - HIVE 查询采集
   - KAFKA 查询采集
