@@ -1,0 +1,88 @@
+#+STARTUP: showall
+
+* Metadata ETL
+
+** Prerequisites
+1. Before running any metadata ingestion job, you should make sure that DataHub backend services are all running.
+1. You also need to build the `mxe-schemas` module as below.
+  #+BEGIN_SRC
+    ./gradlew :metadata-events:mxe-schemas:build
+  #+END_SRC
+1. Before launching each ETL ingestion pipeline, you only need nix package manager and ensure it's channel is ready.
+  #+BEGIN_SRC
+    sudo install -d -m755 -o $(id -u) -g $(id -g) /nix
+    curl https://nixos.org/nix/install | sh
+    # ensure to load profile by prompt, or login again to take affect.
+    nix-channel --add https://nixos.org/channels/nixos-19.09
+    nix-channel --update nixos-19.09
+  #+END_SRC
+
+** Module Introduction
+- the etl project contains different data pipeline: external sandbox, data ingestion, data processing
+- the ingestion split to generator & gmscat, you can pipe them to or you can persistent data for backup.
+- the ingestion type constains: mce json record, dataset, lineage
+
+module manifest:
+|------------+--------------------------------+-----------+--------------------------------------------------------------------------|
+| module     | path                           | type      | description                                                              |
+|------------+--------------------------------+-----------+--------------------------------------------------------------------------|
+| sandbox    | bin/gms_dependency_sandbox.clj | sandbox   | setup local [zookeeper, kafka, kafka schema-registry, pg, es, neo4j]     |
+|------------+--------------------------------+-----------+--------------------------------------------------------------------------|
+| ingestion  | bin/gmscat.clj                 | gmscat    | produce data to metadata system                                          |
+|            | bin/dataset_jdbc_generator.clj | generator | connect with jdbc to generate database(oracle, mysql...) schema metadata |
+|            | bin/lineage_hive_generator.hs  | generator | parse hive sql to generate lineage metadata                              |
+|------------+--------------------------------+-----------+--------------------------------------------------------------------------|
+| processing | bin/gms_mae_conduit.clj        | workflow  | mae event to elasticsearch & neo4j                                       |
+|------------+--------------------------------+-----------+--------------------------------------------------------------------------|
+
+** External Sandbox [WAIT TO RELEASE]
+
+** Data Ingestion
+*** MCE Data File
+1. add config entry to conf/gms.conf.edn, ex :gmscat/uat
+1. pipe file content to gmscat
+#+BEGIN_SRC
+    export NIX_PATH=~/.nix-defexpr/channels
+    cat metadata_sample/demo.dat | bin/gmscat.clj :gmscat/uat
+#+END_SRC
+*** Database Schema
+1. add config entry to conf/gms.conf.edn, ex :jdbc.ora/edw
+1. [oracle only] uncomment the oracle maven dependency in deps.edn file, and download oracle driver to libs directory.
+1. pipe generator to gmscat
+- oracle
+#+BEGIN_SRC
+    export NIX_PATH=~/.nix-defexpr/channels
+    bin/dataset_jdbc_generator.clj :jdbc.ora/edw | bin/gmscat.clj :gmscat/uat
+#+END_SRC
+- mysql
+#+BEGIN_SRC
+    export NIX_PATH=~/.nix-defexpr/channels
+    bin/dataset_jdbc_generator.clj :jdbc.mysql/open-platform | bin/gmscat.clj :gmscat/uat
+#+END_SRC
+
+*** Database Lineage
++ Hive
+you can use [ls, find, cat...] to generate file list, then pipe to generator and gmscat.
+#+BEGIN_SRC
+    export NIX_PATH=~/.nix-defexpr/channels
+    ls metadata_sample/hive_*.sql | bin/lineage_hive_generator.hs
+    find . -name "*.sql" | grep hive | bin/lineage_hive_generator.hs
+#+END_SRC
++ Oracle [TODO]
+
+** Data Processing [WAIT TO RELEASE]
+
+** How to develop and debug in IDE.
+*** clojure script
+1. first enter the nix-shell, it'll download all dependency by nix automatically.
+  #+BEGIN_SRC
+    nix-shell clj.deps.nix
+  #+END_SRC
+1. then you can use [emacs + cider plugin] to living code, or clj command into plain repl.
+
+**** Haskell script
+1. first enter the nix-shell, it'll download all dependency by nix automatically.
+  #+BEGIN_SRC
+    nix-shell hs.deps.nix
+  #+END_SRC
+1. then you can use [emacs + dante plugin] to living code, or ghci command into plain ghci.
