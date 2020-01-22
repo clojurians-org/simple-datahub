@@ -6,12 +6,16 @@
 module Oracle where
 
 import Data.Int
+import Data.Char
 import Data.Data
 import GHC.Generics
+import Control.Applicative
+
 import Control.Lens ()
 
 import Data.ByteString.Lazy (ByteString)
 import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as T
 import qualified Data.Set as S
 import qualified Text.Parsec as P
 import Control.Monad.Reader (Reader)
@@ -309,14 +313,38 @@ data ParserScope = ParserScope
 
 type Parser = P.ParsecT [(Token, Position, Position)] Integer (Reader ParserScope)
 
+advanceHorizontal :: Int64 -> Position -> Position
+advanceHorizontal n p = p
+  { positionColumn = positionColumn p + n
+  , positionOffset = positionOffset p + n
+  }
+advanceVertical :: Int64 -> Position -> Position
+advanceVertical n p = p
+  { positionLine = positionLine p + n
+  , positionColumn = if n > 0 then 0 else positionColumn p
+  , positionOffset = positionOffset p + n
+  }
 tokenize :: Text -> [(Token, Position, Position)]
 tokenize = go (Position 1 0 0)
   where
     go :: Position -> Text -> [(Token, Position, Position)]
     go _ "" = []
-    go p t = []
+    go p t = case T.head t of
+      c | isAlpha c ->
+          case tokUnquotedWord p t of
+            (name, rest, p') -> (TokWord False name, p, p') : go p' rest
+      c | isDigit c -> undefined
+
+      c -> undefined
     -- go p t = 
 
+parseNumber :: Text -> ((Token, Int64), Text)
+parseNumber = undefined
+
+tokUnquotedWord :: Position -> T.Text -> (T.Text, T.Text, Position)
+tokUnquotedWord pos input =
+  case T.span (liftA2 (||) isAlphaNum (== '_')) input of
+    (word, rest) -> (T.toLower word, rest, advanceHorizontal (T.length word) pos)
 
 -- statementParser :: Parser ()
 -- statementParser = undefined
