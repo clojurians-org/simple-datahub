@@ -1,4 +1,4 @@
-with import <nixos-19.09> {} ;
+with import ~/.nix-defexpr/channels/nixos-19.09 {} ;
 let 
   queryparser_git = fetchFromGitHub {
       owner = "uber" ;
@@ -18,9 +18,9 @@ in
 mkShell {
   buildInputs = [
     (haskellPackages.ghcWithPackages ( p: 
-      [ p.bytestring p.text p.string-conversions
+      [ p.pretty p.bytestring p.text p.string-conversions
         p.aeson p.aeson-qq p.aeson-pretty 
-        p.lens p.conduit
+        p.these p.lens p.conduit
         p.hssqlppp p.queryparser p.queryparser-hive ]
     ))
   ];
